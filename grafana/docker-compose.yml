@@ -1,0 +1,25 @@
+version: '3.9'
+services:
+  grafana:
+      image: grafana/grafana:10.1.5
+      container_name: openslava-grafana
+      security_opt:
+        - no-new-privileges:true
+      restart: unless-stopped
+      ports:
+        - '4000:3000'
+      networks:
+        - gitlab
+        - toolchain  
+      environment:
+        - GF_SECURITY_ADMIN_USER=admin
+        - GF_SECURITY_ADMIN_PASSWORD=admin
+        #- GF_INSTALL_PLUGINS="grafana-clock-panel,grafana-simple-json-datasource,grafana-worldmap-panel,grafana-piechart-panel"
+
+networks:
+  gitlab:
+    name: gitlab-network
+    external: true
+  toolchain:
+    name: toolchain-network
+    external: true

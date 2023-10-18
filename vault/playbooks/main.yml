@@ -1,0 +1,16 @@
+---
+- name: Vault Playbook
+  gather_facts: false
+  hosts: localhost
+  vars:
+    vault_fqdn: "http://vault:8200"
+    debug_feed: false
+  tasks:
+    - name: Init Vault
+      include_tasks: tasks/init.yml
+    - name: Unseal Vault
+      include_tasks: tasks/unseal.yml
+    - name: Setup Vault
+      include_tasks: tasks/setup.yml
+    - name: Config Vault
+      include_tasks: tasks/config.yml

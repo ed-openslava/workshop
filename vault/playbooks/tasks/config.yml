@@ -1,0 +1,96 @@
+---
+# TODO: Add check if GL is up
+# TODO: Replace gitlab.local with env vars
+- name: Get Auths
+  uri:
+    url: "{{ vault_fqdn }}/v1/sys/auth"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "GET"
+  register: r_hv_auths
+- name: Enable JWT Auth Method
+  uri:
+    url: "{{ vault_fqdn }}/v1/sys/auth/jwt"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "PUT"
+    body_format: json
+    status_code: 204
+    body:
+      type: "jwt"
+      description: "JWT for GitLab"
+      config:
+        default_lease_ttl: 1800
+        max_lease_ttl: 86400
+  when: r_hv_auths.json['jwt/'] is not defined
+- name: Configure JWT Auth Metod
+  uri:
+    url: "{{ vault_fqdn }}/v1/auth/jwt/config"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "POST"
+    body_format: json
+    status_code: 204
+    body:
+      jwks_url: "http://openslava-gitlab-ce/-/jwks"
+      bound_issuer: "http://localhost"
+- name: Register GitLab Read Only Role in JWT Auth Method
+  uri:
+    url: "{{ vault_fqdn }}/v1/auth/jwt/role/gitlab-vault-readonly"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "POST"
+    body_format: json
+    status_code: 204
+    body:
+      name: "gitlab-vault-readonly"
+      role_type: "jwt"
+      token_explicit_max_ttl: 60
+      user_claim: "user_email"
+      bound_claims: { "ref": "main", "ref_type": "branch" }
+      policies: ["gitlab-vault-readonly"]
+      token_policies: ["gitlab-vault-readonly"]
+- name: Load gitlab-vault-policy
+  slurp:
+    src: "files/gitlab-vault-policy.hcl"
+  register: r_policy
+- name: Here is your policy value
+  debug:
+    var: r_policy['content']|b64decode
+  when: debug_feed
+- name: Create gitlab-vault-readonly ACL Policy
+  uri:
+    url: "{{ vault_fqdn }}/v1/sys/policies/acl/gitlab-vault-readonly"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "POST"
+    body_format: json
+    status_code: 204
+    body:
+      name: "gitlab-vault-readonly"
+      policy: "{{ r_policy['content'] }}"
+## TODO: add check if engine existspo
+- name: Enable KV-V2 Engine for GitLab
+  uri:
+    url: "{{ vault_fqdn }}/v1/sys/mounts/secrets/gitlab"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "POST"
+    body_format: json
+    status_code: 204
+    body:
+      type: "kv"
+      options: { "version": "2"}
+  register: r_secret_engine
+- name: Create a dummy secret
+  uri:
+    url: "{{ vault_fqdn }}/v1/secrets/gitlab/data/project_1"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "POST"
+    body_format: json
+    status_code: 200
+    body:
+      data: {
+        "event": "openslava"
+      }

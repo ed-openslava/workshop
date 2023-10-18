@@ -1,0 +1,9 @@
+gitlab/*
+certs/*
+!*.gitkeep
+.env
+.env*bak
+*ca.crt
+drafts/*
+.DS_Store
+.vscode

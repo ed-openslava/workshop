@@ -1,0 +1,10 @@
+---
+- name: Grafana Playbook
+  gather_facts: false
+  hosts: localhost
+  vars:
+    grafana_fqdn: "http://grafana:3000"
+    debug_feed: false
+  tasks:
+    - name: Configure Grafana
+      include_tasks: tasks/config.yml

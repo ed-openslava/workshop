@@ -1,0 +1,61 @@
+version: '3.9'
+services:
+  gitlab-ci:
+    image: ${GITLAB_CE_IMAGE}:${GITLAB_CE_VERSION}
+    restart: always
+    hostname: "${GITLAB_HOSTNAME}"
+    container_name: openslava-gitlab-ce
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url "${GITLAB_EXTERNAL_URL}"
+        gitlab_rails['initial_root_password'] = "${GITLAB_INIT_ROOT_PW}"
+        gitlab_rails['smtp_enable'] = false
+        gitlab_rails['gitlab_kas_enabled'] = false
+        gitlab_rails['microsoft_graph_mailer_enabled'] = false
+        gitlab_rails['lfs_enabled'] = false
+        gitlab_rails['sentry_enabled'] = false
+        gitlab_rails['gitlab_signup_enabled'] = false
+        gitlab_kas['enable'] = false
+        puma['worker_processes'] = 0
+        sidekiq['max_concurrency'] = 5
+        mattermost['enable'] = false
+        gitlab_rails['env'] = {
+          'MALLOC_CONF' => 'dirty_decay_ms:1000,muzzy_decay_ms:1000'
+        }
+        gitaly['env'] = {
+          'MALLOC_CONF' => 'dirty_decay_ms:1000,muzzy_decay_ms:1000',
+          'GITALY_COMMAND_SPAWN_MAX_PARALLEL' => '2'
+        }
+        prometheus['listen_address'] = ":9090"
+      TZ: "${TIMEZONE}"
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - '$GITLAB_HOME/config:/etc/gitlab'
+      - '$GITLAB_HOME/logs:/var/log/gitlab'
+      - '$GITLAB_HOME/data:/var/opt/gitlab'
+    networks:
+      - gitlab
+      - toolchain
+
+  gitlab-runner:
+    image: gitlab/gitlab-runner:${GITLAB_RUNNER_VERSION}
+    restart: always
+    container_name: openslava-gitlab-runner
+    environment:
+      TZ: "${TIMEZONE}"
+    depends_on:
+      - gitlab-ci
+    volumes:
+      - '$GITLAB_HOME/gitlab-runner:/etc/gitlab-runner'
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - gitlab
+      - toolchain
+
+networks:
+  gitlab:
+    name: gitlab-network
+  toolchain:
+    name: toolchain-network

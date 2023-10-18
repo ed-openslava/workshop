@@ -1,0 +1,73 @@
+---
+- name: Verify that Grafana is responding
+  uri:
+    url: "{{ grafana_fqdn }}/api/health"
+  until: r_grafana_health.status == 200
+  retries: 10
+  delay: 10
+  register: r_grafana_health
+- name: Print Grafana Health
+  debug:
+    var: r_grafana_health
+  when: debug_feed
+- name: Check Grafana DB
+  assert:
+    that:
+      - r_grafana_health.json.database == "ok"
+    fail_msg: "Grafana DB is not OK"
+    success_msg: "Grafana DB is OK"
+- name: Configure Admin Service Account
+  uri:
+    url: "{{ grafana_fqdn }}/api/serviceaccounts"
+    force_basic_auth: true
+    headers:
+      Authorization: "Basic YWRtaW46YWRtaW4="
+    method: "POST"
+    body_format: json
+    status_code: 201
+    body:
+      name: admin
+      role: Admin
+      login: sa-admin
+      isDisabled: false
+  register: r_grafana_admin_sa
+- name: Print Grafana Admin Service Account
+  debug:
+    var: r_grafana_admin_sa
+  when: debug_feed
+- name: Configure Token Admin Service Account
+  uri:
+    url: "{{ grafana_fqdn }}/api/serviceaccounts/{{ r_grafana_admin_sa.json.id }}/tokens"
+    force_basic_auth: true
+    headers:
+      Authorization: "Basic YWRtaW46YWRtaW4="
+    method: "POST"
+    body_format: json
+    status_code: 200
+    body:
+      name: admin
+  register: r_grafana_admin_sa_token
+- name: Print Grafana Admin Service Account Token
+  debug:
+    var: r_grafana_admin_sa_token
+  when: debug_feed
+- name: Create Datasource for GitLab
+  uri:
+    url: "{{ grafana_fqdn }}/api/datasources"
+    force_basic_auth: true
+    headers:
+      Authorization: "Bearer {{ r_grafana_admin_sa_token.json.key }}"
+    method: "POST"
+    body_format: json
+    status_code: 200
+    body:
+      name: "GitLab Omnibus"
+      type: prometheus
+      url: "http://gitlab-ci:9090"
+      isDefault: true
+      access: proxy
+  register: r_grafana_datasource
+- name: Print Grafana Datasource
+  debug:
+    var: r_grafana_datasource
+  when: debug_feed

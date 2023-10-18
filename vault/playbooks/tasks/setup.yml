@@ -1,0 +1,21 @@
+---
+- name: Get Audit
+  uri:
+    url: "{{ vault_fqdn }}/v1/sys/audit"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "GET"
+  register: r_hv_audits
+- name: Enable Audit
+  uri:
+    url: "{{ vault_fqdn }}/v1/sys/audit/file"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "PUT"
+    body_format: json
+    status_code: 204
+    body:
+      type: "file"
+      options:
+        file_path: "/vault/logs/audit.log"
+  when: r_hv_audits.json['file/'] is not defined

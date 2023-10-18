@@ -1,0 +1,40 @@
+---
+- name: Get Seal status
+  uri:
+    url: "{{ vault_fqdn }}/v1/sys/seal-status"
+    method: "GET"
+  register: r_hv_seal_st
+- name: Print Seal status
+  debug:
+    msg: "Vault server is sealed: {{ r_hv_seal_st.json.sealed }}"
+  when: debug_feed
+- name: Load secrets
+  slurp:
+    src: "../.init_tokens"
+  register: r_init_data
+- name: Decode content
+  set_fact:
+    data_decoded: "{{ r_init_data['content'] | b64decode }}"
+- name: Unseal Vault when sealed
+  when: r_hv_seal_st.json.sealed|bool
+  block:
+    - name: Reset any previous Unseal process
+      uri:
+        url: "{{ vault_fqdn }}/v1/sys/unseal"
+        method: "PUT"
+        body_format: json
+        body:
+          reset: true
+    - name: Unseal Vault
+      uri:
+        url: "{{ vault_fqdn }}/v1/sys/unseal"
+        method: "PUT"
+        body_format: json
+        body:
+          key: "{{ item }}"
+      loop: "{{ data_decoded['keys'] }}"
+      loop_control:
+        label: "hidden_key"
+        extended: true
+      register: r_unseal
+      when: ansible_loop.index < 4
